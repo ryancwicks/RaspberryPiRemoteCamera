@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div id="program_area">
+
+    <div id="image_controls_area" class="input_box_area">
+
+    </div>
+
+    <div id="preview_area">
+
+    </div>
+
+    <div id="capture_controls_area" class="input_box_area">
+
+    </div>
+
+    <script src="{{ url_for('static', 'remote_camera_api.js') }}"></script>
+    <script src="{{ url_for('static', 'remote_camera_controls.js') }}"></script>
+    <script>
+        let api = RemoteCameraAPI()
+        let controls = 
+    </script>
+</div>
+
+{% endblock %}
