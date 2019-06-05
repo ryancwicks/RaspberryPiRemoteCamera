@@ -12,7 +12,6 @@ def get_camera():
     global camera_server
     if camera_server == None:
         camera_server = CameraServer()
-        camera_server.open()
     return camera_server
 
 

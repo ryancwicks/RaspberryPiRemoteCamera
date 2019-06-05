@@ -6,6 +6,7 @@ import numpy as np
 import zmq
 import time
 import multiprocessing
+import io
 from picamera import PiCamera
 from picamera.array import PiRGBArray
 
@@ -23,7 +24,8 @@ FRAMERATE = 10
 
 
 # ZMQ settings
-CAMERA_ZMQ_INTERFACE = "ipc://tmp/camera"
+CAMERA_ZMQ_DATA_INTERFACE = "ipc://tmp/camera_data"
+CAMERA_ZMQ_CONTROL_INTERFACE = "ipc://tmp/camera_control"
 CAMERA_HIGH_WATER_MARK = 4
 
 
@@ -49,16 +51,19 @@ class CameraServer(multiprocessing.Process):
         self._stop_capture = True
 
         self._context = zmq.Context()
-        self._socket = self._context.socket(zmq.PUB)
-        self._socket.set_hwm(CAMERA_HIGH_WATER_MARK)
-        self._socket.bind(CAMERA_ZMQ_INTERFACE)
+        self._socket_data = self._context.socket(zmq.PUB)
+        self._socket_data.set_hwm(CAMERA_HIGH_WATER_MARK)
+        self._socket_data.bind(CAMERA_ZMQ_DATA_INTERFACE)
+
+        self._socket_control = self._context.socket(zmq.REP)
+        self._socket_control.bind(CAMERA_ZMQ_CONTROL_INTERFACE)
 
     @property
     def exposure(self):
         """
         Return the exposure time in ms
         """
-        return self.camera.shutter_speed / 1E3
+        return self._camera.shutter_speed / 1E3
 
     @exposure.setter
     def exposure(self, exposure):
@@ -66,16 +71,10 @@ class CameraServer(multiprocessing.Process):
         Set the exposure value (in ms)
         """
         if exposure == 0:
-            self.camera.exposure_mode = "auto"
+            self._camera.exposure_mode = "auto"
         else:
-            self.camera.exposure_mode = "off"
-        self.camera.shutter_speed = int(exposure*1E3)
-
-    def start(self):
-        """
-        Start the capture
-        """
-        self._stop_capture = False
+            self._camera.exposure_mode = "off"
+        self._camera.shutter_speed = int(exposure*1E3)
 
     def __enter__(self):
         """
@@ -89,7 +88,7 @@ class CameraServer(multiprocessing.Process):
         Called to clean up camera context.
         """
         self.stop()
-        self.camera.close()
+        self._camera.close()
 
     def __exit__(self, *args):
         """
@@ -109,18 +108,50 @@ class CameraServer(multiprocessing.Process):
         socket.send_json(md, flags | zmq.SNDMORE)
         return socket.send(A, flags, copy=copy, track=track)
 
+    def _handle_control_message(self, message):
+        """
+        Handle requests from the camera reader (in another process)
+        """
+        response = {"success": True}
+        if "request" not in message:
+            response["success"] = False
+            response["message"] = "Invalid message received by camera."
+        if message["request"] == "get_exposure":
+            response["exposure"] = self.exposure
+        elif message["request"] == "set_exposure":
+            try:
+                self.exposure = int(message["exposure"])
+                response["exposure"] = self.exposure
+            except KeyError:
+                response["success"] = False
+                response["message"] = "Exposure not sent with exposure request."
+        elif message["request"] == "stop_capture":
+            self.stop()
+        elif message["request"] == "start_capture":
+            self.start()
+
+        self._socket_control.send_json(response)
+
     def _capture_continuous(self):
         """
         Capture images continuously from the camera.
         """
         while (True):
+
+            try:
+                control_message = self._socket_control.recv_json(
+                    flags=zmq.NOBLOCK)
+                self._handle_control_message(control_message)
+            except zmq.Again:
+                pass
+
             if not self.stop_capture:
                 stream = io.BytesIO()
                 for frame in self._camera.capture_continuous(stream, format="jpeg", use_video_port=True):
                     frame.seek(0)
                     img = np.asarray(Image.open(frame))
-                    CameraServer._send_array(self._socket, img)
-                    self.raw_capture.truncate(0)
+                    CameraServer._send_array(self._socket_data, img)
+                    self._raw_capture.truncate(0)
                     if self.stop_capture:
                         break
                     stream.seek(0)
@@ -132,7 +163,7 @@ class CameraServer(multiprocessing.Process):
         Run the process
         """
         self.stop_capture = False
-        self._capture_continuous
+        self._capture_continuous()
 
     def stop(self):
         self.stop_capture = True
@@ -148,11 +179,16 @@ class CameraReader():
         Initialize the zmq socket communication.
         """
         self._context = zmq.Context()
-        self._socket = self._context.socket(zmq.SUB)
-        self._socket.set_hwm(CAMERA_HIGH_WATER_MARK)
-        self._socket.connect(CAMERA_INTERFACE)
+        # set up data subscriber
+        self._socket_data = self._context.socket(zmq.SUB)
+        self._socket_data.set_hwm(CAMERA_HIGH_WATER_MARK)
+        self._socket_data.connect(CAMERA_ZMQ_DATA_INTERFACE)
         # subscribe to all sensors.
-        self._socket.setsockopt(zmq.SUBSCRIBE, b"")
+        self._socket_data.setsockopt(zmq.SUBSCRIBE, b"")
+
+        # set up the control interface
+        self._socket_control = self._context.socket(zmq.REQ)
+        self._socket_control.connect(CAMERA_ZMQ_CONTROL_INTERFACE)
 
     @staticmethod
     def _recv_array(socket, flags=0, copy=True, track=False):
@@ -179,5 +215,62 @@ class CameraReader():
         """
         Return a 3 channel np.array (RGB)
         """
-        output = CameraReader._recv_array(self._socket)
+        output = CameraReader._recv_array(self._socket_data)
         return output
+
+    @property
+    def exposure(self):
+        """
+        Return the exposure time in ms
+        """
+        message = {"request": "get_exposure"}
+        self._socket_control.send_json(message)
+        response = self._socket_control.read_json()
+        try:
+            if not response["success"]:
+                raise RuntimeError(response["message"])
+        except KeyError as err:
+            print(f"Invalid response from camera server - {err}")
+
+        return response["exposure"]
+
+    @exposure.setter
+    def exposure(self, exposure):
+        """
+        Set the exposure value (in ms)
+        """
+        message = {"request": "set_exposure",
+                   "exposure": exposure}
+        self._socket_control.send_json(message)
+        response = self._socket_control.read_json()
+        try:
+            if not response["success"]:
+                raise RuntimeError(response["message"])
+        except KeyError as err:
+            print(f"Invalid response from camera server - {err}")
+
+    def stop_capture(self):
+        """
+        stop the capture
+        """
+        message = {"request": "stop_capture"}
+        self._socket_control.send_json(message)
+        response = self._socket_control.read_json()
+        try:
+            if not response["success"]:
+                raise RuntimeError(response["message"])
+        except KeyError as err:
+            print(f"Invalid response from camera server - {err}")
+
+    def start_capture(self):
+        """
+        start the capture
+        """
+        message = {"request": "start_capture"}
+        self._socket_control.send_json(message)
+        response = self._socket_control.read_json()
+        try:
+            if not response["success"]:
+                raise RuntimeError(response["message"])
+        except KeyError as err:
+            print(f"Invalid response from camera server - {err}")
