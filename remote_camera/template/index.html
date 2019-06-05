@@ -20,7 +20,12 @@
     <script src="{{ url_for('static', 'remote_camera_controls.js') }}"></script>
     <script>
         let api = RemoteCameraAPI()
-        let controls = 
+        let controls = {
+            image_control_div: "image_controls_area",
+            preview_div: "preview_area",
+            capture_control_div: "capture_controls_area",
+        };
+        let controls = RemoteCameraControls(controls, api);
     </script>
 </div>
 

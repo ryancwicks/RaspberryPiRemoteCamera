@@ -13,6 +13,7 @@ function RemoteCameraAPI() {
     /**
      * This is  a helper method for getting json responses from the server.
      * @param {string} url 
+     * @return {object} response object
      */
     async function getJSONResponse(url) {
         let response;
@@ -21,7 +22,7 @@ function RemoteCameraAPI() {
             response = await request(url);
             json_response = await response.json();
         } catch (e) {
-            console.log(e)
+            console.log(e);
             return {
                 "success": false,
                 "message": "Client side exception while handling request: " + e
@@ -32,6 +33,11 @@ function RemoteCameraAPI() {
 
     }
 
+    /**
+     * Set the exposure in ms.
+     * @param {int} exposure in ms
+     * @return {int} the exposure set on the camera, or -1 if there's a fault.
+     */
     async function setExposure(exposure) {
         let url = requests.exposure + "/" + exposure.toString();
         let json_response = await getJSONResponse(url);
@@ -47,6 +53,10 @@ function RemoteCameraAPI() {
         }
     };
 
+    /**
+     * Get the exposure from the camera.
+     * @return {int} the current exposure in ms
+     */
     async function getExposure() {
         let url = requests.exposure;
         let json_response = await getJSONResponse(url);
@@ -62,10 +72,17 @@ function RemoteCameraAPI() {
         }
     };
 
+    /**
+     * Get an image from the camera. If scaling is required, use the width and height variables.
+     * Both the width and height need to be returned.
+     * @param {int} width width to scale the image to
+     * @param {int} height height to scale to
+     * @return {string} base64 encoded jpg image.
+     */
     async function getImage(width = undefined, height = undefined) {
         let url = requests.get_image;
         if (width !== undefined && height != undefined) {
-            url += width.toString() + "," + height.toString();
+            url += "/" + width.toString() + "," + height.toString();
         }
         let json_response = await getJSONResponse(url);
         try {
@@ -80,6 +97,9 @@ function RemoteCameraAPI() {
         }
     };
 
+    /**
+     * start the image capture (started by default)
+     */
     async function startCapture() {
         let url = requests.start;
         let json_response = await getJSONResponse(url);
@@ -92,6 +112,9 @@ function RemoteCameraAPI() {
         }
     };
 
+    /**
+     * stop the image capture.
+     */
     async function stopCapture() {
         let url = requests.stop;
         let json_response = await getJSONResponse(url);
