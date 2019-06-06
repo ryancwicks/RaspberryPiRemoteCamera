@@ -9,11 +9,10 @@ https://www.thepolyglotdeveloper.com/2016/09/deploying-docker-containers-raspber
 
 ## Setting up Docker on the Raspberry Pi:
 
-Install docker: 
+Install docker (and give the pi user access, assuming you are using the default username): 
 
 ```bash
 curl -sSL https://get.docker.com | sh
+sudo usermod -aG docker pi
 sudo systemctl enable docker
 ```
-
-
