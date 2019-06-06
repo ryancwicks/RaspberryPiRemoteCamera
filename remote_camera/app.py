@@ -1,7 +1,7 @@
 """
 This part of the flask app servers the main http requests
 """
-from Flask import Blueprint, render_template
+from flask import Blueprint, render_template
 
 bp = Blueprint("main", __name__, "/")
 

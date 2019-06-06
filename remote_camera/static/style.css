@@ -8,6 +8,7 @@ input:focus,select:focus,textarea:focus{
 }
 html{
     width: 100%;
+    height: 100%;
     color: rgba(51,51,51,1);
     font: 12px Arial, sans-serif;
     overflow-y: scroll;
@@ -15,6 +16,7 @@ html{
 }
 body{
     width: 100%;
+    height: 100%;
     min-width:480px;
     background: rgba(255,255,255,1);
 }
@@ -46,6 +48,7 @@ a.underline:hover{
 table,td{
     border:solid 0px #000000;
     border-collapse: collapse;
+    width: 100%
 }
 
 h1{
@@ -56,33 +59,34 @@ ul,li{
     list-style-type: none;
 }
 
-.program_area {
-    position: relative;
+#program_area {
     display: grid;
-    grid-template-columns: "auto";
-    grid-template-rows: "10% auto 10%";
+    grid-template-columns: none;
+    grid-template-rows: min-content auto min-content;
     grid-template-areas: "image_control"
                          "preview"
                          "capture_control";
-    width: 95vw;
+    grid-gap: 5px;
+    width: 90vw;
+    height: 90vh;
 }
 
-.image_controls_area {
+#image_controls_area {
     grid-area: image_control;
     border: solid 4px #BBBBBB;
     border-radius: 10px;
 }
 
-.preview_area {
+#preview_area {
     grid-area: preview;
 }
 
-.capture_controls_area {
+#capture_controls_area {
     grid-area: capture_control;
 
 }
 
-#input_box_area {
+.input_box_area {
     border: solid 4px #BBBBBB;
     border-radius: 10px;
 }

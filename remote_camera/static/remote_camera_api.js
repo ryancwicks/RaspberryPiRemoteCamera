@@ -19,7 +19,7 @@ function RemoteCameraAPI() {
         let response;
         let json_response;
         try {
-            response = await request(url);
+            response = await fetch(url);
             json_response = await response.json();
         } catch (e) {
             console.log(e);
@@ -80,7 +80,7 @@ function RemoteCameraAPI() {
      * @return {string} base64 encoded jpg image.
      */
     async function getImage(width = undefined, height = undefined) {
-        let url = requests.get_image;
+        let url = requests.image;
         if (width !== undefined && height != undefined) {
             url += "/" + width.toString() + "," + height.toString();
         }

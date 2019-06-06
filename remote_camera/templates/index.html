@@ -2,13 +2,15 @@
 
 {% block content %}
 
+<h1>Rapsberry Pi Camera Web Interface</h1>
+
 <div id="program_area">
 
     <div id="image_controls_area" class="input_box_area">
 
     </div>
 
-    <div id="preview_area">
+    <div id="preview_area" class="input_box_area">
 
     </div>
 
@@ -16,16 +18,16 @@
 
     </div>
 
-    <script src="{{ url_for('static', 'remote_camera_api.js') }}"></script>
-    <script src="{{ url_for('static', 'remote_camera_controls.js') }}"></script>
+    <script src="{{ url_for('static', filename='remote_camera_api.js') }}"></script>
+    <script src="{{ url_for('static', filename='remote_camera_controls.js') }}"></script>
     <script>
         let api = RemoteCameraAPI()
-        let control_divs = {
+        let controls_div = {
             image_control_div: "image_controls_area",
             preview_div: "preview_area",
             capture_control_div: "capture_controls_area",
         };
-        let controls = RemoteCameraControls(control_divs, api);
+        let controls = RemoteCameraControls(controls_div, api);
     </script>
 </div>
 

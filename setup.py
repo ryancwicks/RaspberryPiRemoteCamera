@@ -24,8 +24,14 @@ setuptools.setup(
     ]},
     install_requires=[
         'Flask',
-        'picamera',
+        # 'picamera',
         'zmq',
-        'PIL',
+        'pillow',
+        'numpy',
     ],
+    entry_points={
+        'console_scripts': [
+            'run_server=remote_camera:main'
+        ],
+    }
 )

@@ -1,12 +1,12 @@
 """
 This part of the flask app responds to api requests
 """
-from Flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request
 from remote_camera.camera import CameraReader
 from io import BytesIO
 import base64
 
-bp = Blueprint("api", __name__, "/api/v1.0/")
+bp = Blueprint("api", __name__, url_prefix="/api/v1.0/")
 
 
 @bp.route("/get_image", defaults={'width': None, 'height': None})
@@ -24,15 +24,16 @@ def get_image(width, height):
     try:
         image_array = cam.capture()
         image = cam.array_to_image(image_array)
+        response["image"] = 'data:image/png;base64,' + \
+            get_base_64_image(image, image_size).decode()
     except:
         response["success"] = False
         response["message"] = "Failed to capture an image."
 
-    response["image"] = get_base_64_image(image, image_size)
     return jsonify(response)
 
 
-@bp.route("/exposure", defaults={'exposure'=None})
+@bp.route("/exposure", defaults={'exposure': None})
 @bp.route("/exposure/<int:exposure>")
 def exposure(exposure):
     """
@@ -40,9 +41,11 @@ def exposure(exposure):
     """
     response = {"success": True}
     cam = CameraReader()
+
     if not exposure:
+        response["exposure"] = cam.exposure
         try:
-            response["exposure"] = cam.exposure
+            pass
         except:
             response["success"] = False
             response["message"] = "Failed to read exposure from camera."
@@ -99,4 +102,4 @@ def get_base_64_image(image, size=None):
     new_image.save(output_stream, format='jpeg')
     output_stream.seek(0)
 
-    return base64.b64encode(output_stream)
+    return base64.b64encode(output_stream.getvalue())

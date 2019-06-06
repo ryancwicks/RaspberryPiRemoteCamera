@@ -34,10 +34,9 @@ function RemoteCameraControls(control_elements, api_instance) {
 
         preview_canvas = setupDisplayCanvas(control_elements.preview_div);
         current_preview_image.addEventListener("load", () => {
-            preview_canvas.updateImage(current_preview_image);
+            preview_canvas.drawImage(current_preview_image);
         });
-        await updateImage();
-        startImageUpdate();
+        await startImageUpdate();
 
         image_controls = setupImageControls(control_elements.image_control_div);
         capture_controls = setupCaptureControls(control_elements.capture_control_div);
@@ -49,15 +48,16 @@ function RemoteCameraControls(control_elements, api_instance) {
         current_preview_image.src = await api.getImage(image_size.width, image_size.height);
     }
 
-    function startImageUpdate() {
-        image_update_timer = setInterval(updateImage, 500);
+    async function startImageUpdate() {
+        await updateImage()
+        image_update_timer = setTimeout(startImageUpdate, 500);
     }
 
     function stopImageUpdate() {
         clearInterval(image_update_timer);
     }
 
-    function setupImageControls(controls_div) {
+    async function setupImageControls(controls_div_element) {
         const min_exposure = 0;
         const max_exposure = 50;
 
@@ -75,7 +75,10 @@ function RemoteCameraControls(control_elements, api_instance) {
         exposure_input.step = exposure_slider.step;
         exposure_input.addEventListener("change", inputChanged);
 
-        updateExposure(await api.getExposure());
+        {
+            let exposure = await api.getExposure();
+            updateExposure(exposure);
+        }
 
         function sliderChanged() {
             exposure_input.value = exposure_slider.value;
@@ -88,7 +91,8 @@ function RemoteCameraControls(control_elements, api_instance) {
         };
 
         async function changeExposure(exposure) {
-            let new_exposure = await api.getExposure();
+
+            let new_exposure = await api.setExposure(exposure);
             updateExposure(new_exposure);
         };
 
@@ -100,15 +104,17 @@ function RemoteCameraControls(control_elements, api_instance) {
         };
 
         { //scoped document setup.
-            let controls_div = document.getElementById(controls_div);
+            let controls_div = document.getElementById(controls_div_element);
             let table = document.createElement("TABLE");
             let row = document.createElement("TR");
             let data = document.createElement("TD");
-            data.innerHTML("Exposure (ms)");
+            data.innerHTML = "Exposure (ms)";
             row.appendChild(data);
-            data = document.createElement("TD").appendChild(exposure_slider)
+            data = document.createElement("TD")
+            data.appendChild(exposure_slider)
             row.appendChild(data);
-            data = document.createElement("TD").appendChild(exposure_input)
+            data = document.createElement("TD")
+            data.appendChild(exposure_input)
             row.appendChild(data);
             table.appendChild(row);
             controls_div.appendChild(table);
@@ -119,7 +125,7 @@ function RemoteCameraControls(control_elements, api_instance) {
         };
     }
 
-    function setupCaptureControls(controls_div) {
+    function setupCaptureControls(controls_div_element) {
         const file_extension = ".jpg";
         let capture_button = document.createElement("INPUT");
         capture_button.type = "button";
@@ -128,15 +134,17 @@ function RemoteCameraControls(control_elements, api_instance) {
         filename_box.type = "text";
 
         function capture() {
+            stopImageUpdate();
             let image = api.getImage();
             let filename = filename_box.value + file_extension;
             downloadImage(filename, image);
             updateFilename();
+            startImageUpdate();
         };
 
         function downloadImage(filename, image_source) {
             let element = document.createElement("A");
-            element.setAttribute('href', 'data:image/jpeg;base64,' + image_source);
+            element.setAttribute('href', image_source);//'data:image/jpeg;base64,' + image_source);
             element.setAttribute('download', filename);
             element.style.display = "none";
             document.body.appendChild(element);
@@ -174,15 +182,17 @@ function RemoteCameraControls(control_elements, api_instance) {
         };
 
         { //scoped document setup
-            let controls_div = document.getElementById(controls_div);
+            let controls_div = document.getElementById(controls_div_element);
             let table = document.createElement("TABLE");
             let row = document.createElement("TR");
             let data = document.createElement("TD");
-            data.innerHTML("Filename");
+            data.innerHTML = "Filename";
             row.appendChild(data);
-            data = document.createElement("TD").appendChild(filename_box)
+            data = document.createElement("TD")
+            data.appendChild(filename_box)
             row.appendChild(data);
-            data = document.createElement("TD").appendChild(capture_button)
+            data = document.createElement("TD")
+            data.appendChild(capture_button)
             row.appendChild(data);
             table.appendChild(row);
             controls_div.appendChild(table);
@@ -230,8 +240,6 @@ function setupDisplayCanvas(canvas_div_id) {
 
     function drawImage(img) {
         ctx.drawImage(img, 0, 0, container.offsetWidth, container.offsetHeight);
-        current_image_true_width = img.width;
-        current_image_true_height = img.height;
     }
 
 
