@@ -6,6 +6,14 @@ Containerized application for capturing still images from a remote Raspberry Pi.
 Based on instructions found here:
 https://www.thepolyglotdeveloper.com/2016/09/deploying-docker-containers-raspberry-pi-device/
 
+Additionally, run
+
+```bash
+sudo raspi-config
+```
+
+Enable the camera, ssh, and set up the system to boot into the command line. Also set up any networking, as appropriate.
+
 
 ## Setting up Docker on the Raspberry Pi:
 
