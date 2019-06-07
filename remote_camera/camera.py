@@ -169,31 +169,34 @@ class CameraServer(multiprocessing.Process):
         """
         Capture images continuously from the camera.
         """
-        while (True):
+        try:
+            while (True):
 
-            try:
-                control_message = self._socket_control.recv_json(
-                    flags=zmq.NOBLOCK)
-                self._handle_control_message(control_message)
-            except zmq.Again:
-                pass
+                try:
+                    control_message = self._socket_control.recv_json(
+                        flags=zmq.NOBLOCK)
+                    self._handle_control_message(control_message)
+                except zmq.Again:
+                    pass
 
-            if not self._stop_capture:
-                if picam_found:
-                    stream = io.BytesIO()
-                    for frame in self._camera.capture_continuous(stream, format="jpeg", use_video_port=True):
-                        frame.seek(0)
-                        img = np.asarray(Image.open(frame))
-                        CameraServer._send_array(self._socket_data, img)
-                        self._raw_capture.truncate(0)
-                        if self.stop_capture:
-                            break
-                        stream.seek(0)
+                if not self._stop_capture:
+                    if picam_found:
+                        stream = io.BytesIO()
+                        for frame in self._camera.capture_continuous(stream, format="jpeg", use_video_port=True):
+                            frame.seek(0)
+                            img = np.asarray(Image.open(frame))
+                            CameraServer._send_array(self._socket_data, img)
+                            self._raw_capture.truncate(0)
+                            if self.stop_capture:
+                                break
+                            stream.seek(0)
+                    else:
+                        CameraServer._send_array(self._socket_data, self.img)
+                        time.sleep(0.100)
                 else:
-                    CameraServer._send_array(self._socket_data, self.img)
-                    time.sleep(0.100)
-            else:
-                time.sleep(1)
+                    time.sleep(1)
+        except KeyboardInterrupt:
+            pass
 
     def run(self):
         """

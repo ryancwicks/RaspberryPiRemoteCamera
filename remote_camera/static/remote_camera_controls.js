@@ -33,14 +33,14 @@ function RemoteCameraControls(control_elements, api_instance) {
 
 
         preview_canvas = setupDisplayCanvas(control_elements.preview_div);
+        image_controls = setupImageControls(control_elements.image_control_div);
+        capture_controls = setupCaptureControls(control_elements.capture_control_div);
+
+        preview_canvas.resize();
         current_preview_image.addEventListener("load", () => {
             preview_canvas.drawImage(current_preview_image);
         });
         await startImageUpdate();
-
-        image_controls = setupImageControls(control_elements.image_control_div);
-        capture_controls = setupCaptureControls(control_elements.capture_control_div);
-
     })()
 
     async function updateImage() {
@@ -67,6 +67,7 @@ function RemoteCameraControls(control_elements, api_instance) {
         exposure_slider.max = max_exposure;
         exposure_slider.step = 1;
         exposure_slider.addEventListener("change", sliderChanged);
+        exposure_slider.classList.add("col2");
 
         let exposure_input = document.createElement("INPUT");
         exposure_input.type = "number";
@@ -129,16 +130,22 @@ function RemoteCameraControls(control_elements, api_instance) {
         const file_extension = ".jpg";
         let capture_button = document.createElement("INPUT");
         capture_button.type = "button";
-        capture_button.addEventListener("click", capture);
+        capture_button.value = "Save Image";
+        capture_button.addEventListener("click", capture, false);
+
         let filename_box = document.createElement("INPUT");
         filename_box.type = "text";
+        filename_box.classList.add("col2");
+        filename_box.value = "image";
 
-        function capture() {
+        function capture(evt) {
             stopImageUpdate();
-            let image = api.getImage();
-            let filename = filename_box.value + file_extension;
-            downloadImage(filename, image);
-            updateFilename();
+            api.getImage().then((image) => {
+                let filename = filename_box.value + file_extension;
+                downloadImage(filename, image);
+                updateFilename();
+                startImageUpdate();
+            });
             startImageUpdate();
         };
 
@@ -169,7 +176,7 @@ function RemoteCameraControls(control_elements, api_instance) {
                     filename += "0001";
                 } else {
                     let last_bit = Number(filename.substring(index_under + 1));
-                    if (last_bit.isNaN()) { //text past underscore is not a number
+                    if (last_bit.isNaN) { //text past underscore is not a number
                         filename += "_0001";
                     } else { //we have a number past the underscore, increment it and replace.
                         last_bit += 1
@@ -185,15 +192,18 @@ function RemoteCameraControls(control_elements, api_instance) {
             let controls_div = document.getElementById(controls_div_element);
             let table = document.createElement("TABLE");
             let row = document.createElement("TR");
-            let data = document.createElement("TD");
-            data.innerHTML = "Filename";
-            row.appendChild(data);
-            data = document.createElement("TD")
-            data.appendChild(filename_box)
-            row.appendChild(data);
-            data = document.createElement("TD")
-            data.appendChild(capture_button)
-            row.appendChild(data);
+            let data1 = document.createElement("TD");
+            let data2 = document.createElement("TD")
+            let data3 = document.createElement("TD")
+
+            data1.innerHTML = "Filename";
+            data2.appendChild(filename_box)
+            data3.appendChild(capture_button)
+
+            row.appendChild(data1);
+            row.appendChild(data2);
+            row.appendChild(data3);
+
             table.appendChild(row);
             controls_div.appendChild(table);
         };
@@ -222,24 +232,24 @@ function setupDisplayCanvas(canvas_div_id) {
     container.appendChild(canvas);
     let ctx = canvas.getContext("2d");
 
-    resize();
-    canvas.addEventListener("resize", resize);
+    window.addEventListener("resize", resize);
 
     function resize() {
         //let aspect = canvas.height/canvas.width;
-        let width = container.offsetWidth;
-        let height = container.offsetHeight;
+        let width = container.clientWidth;
+        let height = container.clientHeight;
 
         canvas.width = width;
         canvas.height = height;
     };
 
     function clear() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.clearRect(0, 0, container.clientWidth, container.clientHeight);
     };
 
     function drawImage(img) {
-        ctx.drawImage(img, 0, 0, container.offsetWidth, container.offsetHeight);
+        clear()
+        ctx.drawImage(img, 0, 0, container.clientWidth, container.clientHeight);
     }
 
 
@@ -249,8 +259,8 @@ function setupDisplayCanvas(canvas_div_id) {
         drawImage: drawImage,
         getCanvasSize: () => {
             return {
-                width: canvas.width,
-                height: canvas.height,
+                width: container.clientWidth,
+                height: container.clientHeight,
             }
         },
     };

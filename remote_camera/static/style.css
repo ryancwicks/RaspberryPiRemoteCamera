@@ -45,9 +45,8 @@ a.underline:hover{
     text-decoration:underline;
 }
 
-table,td{
+table{
     border:solid 0px #000000;
-    border-collapse: collapse;
     width: 100%
 }
 
@@ -69,16 +68,27 @@ ul,li{
     grid-gap: 5px;
     width: 90vw;
     height: 90vh;
+    position: relative;
 }
 
 #image_controls_area {
     grid-area: image_control;
-    border: solid 4px #BBBBBB;
-    border-radius: 10px;
 }
 
 #preview_area {
     grid-area: preview;
+    /*display: block;*/
+    line-height:0;
+    max-width: 95%;
+    max-height: 95%;
+    padding: 0;
+    margin: auto;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    border-radius: 3px;
 }
 
 #capture_controls_area {
@@ -90,3 +100,5 @@ ul,li{
     border: solid 4px #BBBBBB;
     border-radius: 10px;
 }
+
+td .col2 { width:100%;}
