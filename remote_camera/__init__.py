@@ -33,14 +33,13 @@ def create_app(test_config=None):
     # application.config.from_envvar(
     #    SECRET_KEY='REMOTE_CAMERA_SECRET_KEY'
     # )
-
+    initialize()
     from remote_camera import app
     from remote_camera import api
 
     application.register_blueprint(app.bp)
     application.register_blueprint(api.bp)
 
-    application.before_first_request(initialize)
     return application
 
 
