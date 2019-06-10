@@ -22,6 +22,11 @@ def get_image(width, height):
     if width is not None and height is not None:
         image_size = (width, height)
     try:
+        # Resolution setting not currently working, don't turn on for now.
+        #current_resolution = cam.resolution
+        # if current_resolution[0] != image_size[0] or current_resolution[1] != image_size[1]:
+        #    cam.set_resolution(image_size[0], image_size[1])
+        #    time.sleep(0.1)  # wait for buffer to clear
         image_array = cam.capture()
         image = cam.array_to_image(image_array)
         response["image"] = 'data:image/png;base64,' + \
@@ -43,16 +48,15 @@ def exposure(exposure):
     cam = CameraReader()
 
     if not exposure:
-        response["exposure"] = cam.exposure
         try:
-            pass
+            response["exposure"] = round(cam.exposure)
         except:
             response["success"] = False
             response["message"] = "Failed to read exposure from camera."
     else:
         try:
             cam.exposure = exposure
-            response["exposure"] = cam.exposure
+            response["exposure"] = round(cam.exposure)
         except:
             response["success"] = False
             response["message"] = "Failed to set exposure from camera."

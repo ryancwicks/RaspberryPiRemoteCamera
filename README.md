@@ -15,12 +15,11 @@ sudo raspi-config
 Enable the camera, ssh, and set up the system to boot into the command line. Also set up any networking, as appropriate.
 
 
-## Setting up Docker on the Raspberry Pi:
+# Setting up the Raspberry Pi to run the site through nginx and uwsgi
 
-Install docker (and give the pi user access, assuming you are using the default username): 
+Start by copying the site files over the to pi:
 
 ```bash
-curl -sSL https://get.docker.com | sh
-sudo usermod -aG docker pi
-sudo systemctl enable docker
+rsync -avz ./ pi@<pi ip address>:remote_camera/ --exclude 'venv' --exclude '__pycache__' --exclude '*.egg-info'
 ```
+

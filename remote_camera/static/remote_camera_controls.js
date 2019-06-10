@@ -16,6 +16,8 @@ function RemoteCameraControls(control_elements, api_instance) {
     let image_controls;
     let capture_controls;
 
+    const image_update_period = 100;
+
     (async function initialize() {
         let valid_setup = true;
         let required_keys = Object.keys(control_elements);
@@ -50,7 +52,7 @@ function RemoteCameraControls(control_elements, api_instance) {
 
     async function startImageUpdate() {
         await updateImage()
-        image_update_timer = setTimeout(startImageUpdate, 500);
+        image_update_timer = setTimeout(startImageUpdate, image_update_period);
     }
 
     function stopImageUpdate() {
@@ -66,6 +68,7 @@ function RemoteCameraControls(control_elements, api_instance) {
         exposure_slider.min = min_exposure;
         exposure_slider.max = max_exposure;
         exposure_slider.step = 1;
+        exposure_slider.value = 0;
         exposure_slider.addEventListener("change", sliderChanged);
         exposure_slider.classList.add("col2");
 
@@ -74,6 +77,7 @@ function RemoteCameraControls(control_elements, api_instance) {
         exposure_input.min = exposure_slider.min;
         exposure_input.max = exposure_slider.max;
         exposure_input.step = exposure_slider.step;
+        exposure_input.value = 0;
         exposure_input.addEventListener("change", inputChanged);
 
         {
@@ -98,7 +102,7 @@ function RemoteCameraControls(control_elements, api_instance) {
         };
 
         function updateExposure(exposure) {
-            if (exposure > min_exposure && exposure < max_exposure) {
+            if (exposure >= min_exposure && exposure < max_exposure) {
                 exposure_slider.value = exposure;
                 exposure_input.value = exposure;
             }

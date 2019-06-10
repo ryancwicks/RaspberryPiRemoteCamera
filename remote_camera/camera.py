@@ -30,14 +30,20 @@ resolutions = {
     'small-16:9': (1280, 720),
 }
 AWB_GAINS = 1.6
-FRAMERATE = 5
+FRAMERATE = 10
 
-CAMERA_ZMQ_DATA_INTERFACE = "tcp://*:5555"
-CAMERA_ZMQ_DATA_READER_INTERFACE = "tcp://localhost:5555"
-CAMERA_ZMQ_CONTROL_INTERFACE = "tcp://*:5556"
-CAMERA_ZMQ_CONTROL_READER_INTERFACE = "tcp://localhost:5556"
+if platform == "linux" or platform == "linux2":
+    CAMERA_ZMQ_DATA_INTERFACE = "ipc:///tmp/cameradata"
+    CAMERA_ZMQ_DATA_READER_INTERFACE = "ipc:///tmp/cameradata"
+    CAMERA_ZMQ_CONTROL_INTERFACE = "ipc:///tmp/cameracontrol"
+    CAMERA_ZMQ_CONTROL_READER_INTERFACE = "ipc:///tmp/cameracontrol"
+else:
+    CAMERA_ZMQ_DATA_INTERFACE = "tcp://*:5555"
+    CAMERA_ZMQ_DATA_READER_INTERFACE = "tcp://localhost:5555"
+    CAMERA_ZMQ_CONTROL_INTERFACE = "tcp://*:5556"
+    CAMERA_ZMQ_CONTROL_READER_INTERFACE = "tcp://localhost:5556"
 
-CAMERA_HIGH_WATER_MARK = 4
+CAMERA_HIGH_WATER_MARK = 1
 
 
 class CameraServer(multiprocessing.Process):
@@ -48,15 +54,8 @@ class CameraServer(multiprocessing.Process):
     def __init__(self, resolution="full-4:3"):
         super().__init__()
         self._stop_capture = False
-        self.resolution = resolution
-
-        #self._context = zmq.Context()
-        #self._socket_data = self._context.socket(zmq.PUB)
-        # self._socket_data.set_hwm(CAMERA_HIGH_WATER_MARK)
-        # self._socket_data.bind(CAMERA_ZMQ_DATA_INTERFACE)
-
-        #self._socket_control = self._context.socket(zmq.REP)
-        # self._socket_control.bind(CAMERA_ZMQ_CONTROL_INTERFACE)
+        self._break_capture = False
+        self._resolution = resolutions[resolution]
 
     @property
     def exposure(self):
@@ -81,6 +80,22 @@ class CameraServer(multiprocessing.Process):
             self._camera.shutter_speed = int(exposure*1E3)
         else:
             self._exposure = exposure
+
+    @property
+    def resolution(self):
+        """
+        Set the resolution
+        """
+        return self._resolution
+
+    @resolution.setter
+    def resolution(self, resolution):
+        """
+        Set the resolution to scale the image to.
+        """
+        if not isinstance(resolution, tuple):
+            raise TypeError("Resolution must be a tuple")
+        self._resolution = resolution
 
     def __enter__(self):
         """
@@ -132,6 +147,17 @@ class CameraServer(multiprocessing.Process):
             except KeyError:
                 response["success"] = False
                 response["message"] = "Exposure not sent with exposure request."
+        elif message["request"] == "set_exposure":
+            try:
+                self.resolution = (message["width"], message["height"])
+                # Cause the system to reset the resolution.
+                self._break_capture = True
+            except:
+                response["success"] = False
+                response["message"] = "Could not set resolution"
+        elif message['request'] == "get_exposure":
+            response['width'] = self.resolution[0]
+            response['height'] = self.resolution[1]
         elif message["request"] == "stop_capture":
             self.stop()
         elif message["request"] == "start_capture":
@@ -139,34 +165,42 @@ class CameraServer(multiprocessing.Process):
 
         self._socket_control.send_json(response)
 
+    def _poll_control(self):
+        """
+        """
+        try:
+            control_message = self._socket_control.recv_json(
+                flags=zmq.NOBLOCK)
+            self._handle_control_message(control_message)
+        except zmq.Again:
+            pass
+
     def _capture_continuous(self):
         """
         Capture images continuously from the camera.
         """
         try:
-            while (True):
-
-                try:
-                    control_message = self._socket_control.recv_json(
-                        flags=zmq.NOBLOCK)
-                    self._handle_control_message(control_message)
-                except zmq.Again:
-                    pass
+            while (not self._stop_capture):
 
                 if not self._stop_capture:
                     if picam_found:
                         stream = io.BytesIO()
-                        for frame in self._camera.capture_continuous(stream, format="jpeg", use_video_port=True):
+                        self._raw_capture = PiRGBArray(
+                            self._camera, size=self.resolution)
+                        for frame in self._camera.capture_continuous(stream, format="jpeg", use_video_port=True, resize=self.resolution):
                             frame.seek(0)
                             img = np.asarray(Image.open(frame))
                             CameraServer._send_array(self._socket_data, img)
                             self._raw_capture.truncate(0)
-                            if self._stop_capture:
+                            if self._stop_capture or self._break_capture:
+                                self._break_capture = False
                                 break
                             stream.seek(0)
+                            self._poll_control()
                     else:
                         CameraServer._send_array(self._socket_data, self.img)
-                        time.sleep(0.100)
+                        time.sleep(1.0 / FRAMERATE)
+                        self.poll_control()
                 else:
                     time.sleep(1)
         except KeyboardInterrupt:
@@ -178,25 +212,6 @@ class CameraServer(multiprocessing.Process):
         """
         self._stop_capture = False
 
-        if picam_found:
-            self._camera = PiCamera()
-            if self.resolution not in resolutions.keys():
-                raise RuntimeError("Invalid Resolution Selected")
-            self._camera.resolution = resolutions[self.resolution]
-            self._camera.awb_gains = AWB_GAINS
-            self._camera.framerate = FRAMERATE
-        time.sleep(1)
-
-        if picam_found:
-            self._raw_capture = PiRGBArray(
-                self._camera, size=resolutions[self.resolution])
-            self.frame = None
-        else:
-            self._exposure = 5
-            self.img = np.asarray(Image.open(
-                test_image_filepath).convert('RGB'))
-
-
         # needs to be setup up once inside new process, doesn't work otherwise.
         self._context = zmq.Context()
         self._socket_data = self._context.socket(zmq.PUB)
@@ -205,6 +220,23 @@ class CameraServer(multiprocessing.Process):
 
         self._socket_control = self._context.socket(zmq.REP)
         self._socket_control.bind(CAMERA_ZMQ_CONTROL_INTERFACE)
+
+        if picam_found:
+            self._camera = PiCamera()
+            self._camera.resolution = self.resolution
+            self._camera.awb_gains = AWB_GAINS
+            self._camera.framerate = FRAMERATE
+        time.sleep(1)
+
+        if picam_found:
+            self._raw_capture = PiRGBArray(
+                self._camera, size=self.resolution)
+            self.frame = None
+        else:
+            self._exposure = 5
+            self.img = np.asarray(Image.open(
+                test_image_filepath).convert('RGB'))
+
         self._capture_continuous()
 
     def stop(self):
@@ -283,6 +315,37 @@ class CameraReader():
         """
         message = {"request": "set_exposure",
                    "exposure": exposure}
+        self._socket_control.send_json(message)
+        response = self._socket_control.recv_json()
+        try:
+            if not response["success"]:
+                raise RuntimeError(response["message"])
+        except KeyError as err:
+            print("Invalid response from camera server - {}".format(err))
+
+    @property
+    def resolution(self):
+        """
+        Return the current resolution
+        """
+        message = {"request": "get_resolution"}
+        self._socket_control.send_json(message)
+        response = self._socket_control.recv_json()
+        try:
+            if not response["success"]:
+                raise RuntimeError(response["message"])
+        except KeyError as err:
+            print("Invalid response from camera server - {}".format(err))
+
+        return (response["width"], response["height"])
+
+    def set_resolution(self, width, height):
+        """
+        Set the image resolution
+        """
+        message = {"request": "set_resolution",
+                   "width": width,
+                   "height": height}
         self._socket_control.send_json(message)
         response = self._socket_control.recv_json()
         try:

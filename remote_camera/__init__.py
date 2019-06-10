@@ -1,5 +1,5 @@
 from flask import Flask
-from functools import partial
+import time
 from remote_camera.camera import CameraServer, CameraReader
 
 camera_server = None
@@ -34,6 +34,8 @@ def create_app(test_config=None):
     #    SECRET_KEY='REMOTE_CAMERA_SECRET_KEY'
     # )
     initialize()
+    # allow time for the camera to start before first requests.
+    time.sleep(1.5)
     from remote_camera import app
     from remote_camera import api
 
