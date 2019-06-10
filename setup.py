@@ -24,10 +24,11 @@ setuptools.setup(
     ]},
     install_requires=[
         'Flask',
-        # 'picamera',
+        'picamera',
         'zmq',
         'pillow',
         'numpy',
+        'uwsgi',
     ],
     entry_points={
         'console_scripts': [

@@ -1,0 +1,12 @@
+[Unit]
+Description=Remote CamerauWSGI Service
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/home/pi/remote_camera/
+ExecStart=/usr/local/bin/uwsgi --ini /home/pi/remote_camera/uwsgi.ini
+
+[Install]
+WantedBy=multi-user.target
