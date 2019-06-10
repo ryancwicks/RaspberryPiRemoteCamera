@@ -4,7 +4,7 @@ from remote_camera.camera import CameraServer, CameraReader
 
 camera_server = None
 
-DEBUG = True
+DEBUG = False
 
 
 def get_camera():
@@ -48,6 +48,6 @@ def main():
     Main entry point for the program.
     """
 
-    port = 5000 + (0 if DEBUG else random.randint(0, 999))
+    port = 5000
     app = create_app()
-    app.run(port=port, debug=DEBUG, use_reloader=False)
+    app.run(host='0.0.0.0', port=port, debug=DEBUG, use_reloader=False)

@@ -30,7 +30,7 @@ resolutions = {
     'small-16:9': (1280, 720),
 }
 AWB_GAINS = 1.6
-FRAMERATE = 10
+FRAMERATE = 5
 
 CAMERA_ZMQ_DATA_INTERFACE = "tcp://*:5555"
 CAMERA_ZMQ_DATA_READER_INTERFACE = "tcp://localhost:5555"
@@ -47,25 +47,8 @@ class CameraServer(multiprocessing.Process):
 
     def __init__(self, resolution="full-4:3"):
         super().__init__()
-        if picam_found:
-            self._camera = PiCamera()
-            if resolution not in resolutions.keys():
-                raise RuntimeError("Invalid Resolution Selected")
-            self._camera.resolution = resolutions[resolution]
-            self._camera.awb_gains = AWB_GAINS
-            self._camera.framerate = FRAMERATE
-        time.sleep(1)
-
-        if picam_found:
-            self._raw_capture = PiRGBArray(
-                self._camera, size=resolutions[resolution])
-            self.frame = None
-        else:
-            self._exposure = 5
-            self.img = np.asarray(Image.open(
-                test_image_filepath).convert('RGB'))
-
         self._stop_capture = False
+        self.resolution = resolution
 
         #self._context = zmq.Context()
         #self._socket_data = self._context.socket(zmq.PUB)
@@ -178,7 +161,7 @@ class CameraServer(multiprocessing.Process):
                             img = np.asarray(Image.open(frame))
                             CameraServer._send_array(self._socket_data, img)
                             self._raw_capture.truncate(0)
-                            if self.stop_capture:
+                            if self._stop_capture:
                                 break
                             stream.seek(0)
                     else:
@@ -194,6 +177,25 @@ class CameraServer(multiprocessing.Process):
         Run the process
         """
         self._stop_capture = False
+
+        if picam_found:
+            self._camera = PiCamera()
+            if self.resolution not in resolutions.keys():
+                raise RuntimeError("Invalid Resolution Selected")
+            self._camera.resolution = resolutions[self.resolution]
+            self._camera.awb_gains = AWB_GAINS
+            self._camera.framerate = FRAMERATE
+        time.sleep(1)
+
+        if picam_found:
+            self._raw_capture = PiRGBArray(
+                self._camera, size=resolutions[self.resolution])
+            self.frame = None
+        else:
+            self._exposure = 5
+            self.img = np.asarray(Image.open(
+                test_image_filepath).convert('RGB'))
+
 
         # needs to be setup up once inside new process, doesn't work otherwise.
         self._context = zmq.Context()
@@ -270,7 +272,7 @@ class CameraReader():
             if not response["success"]:
                 raise RuntimeError(response["message"])
         except KeyError as err:
-            print(f"Invalid response from camera server - {err}")
+            print("Invalid response from camera server - {}".format(err))
 
         return response["exposure"]
 
@@ -287,7 +289,7 @@ class CameraReader():
             if not response["success"]:
                 raise RuntimeError(response["message"])
         except KeyError as err:
-            print(f"Invalid response from camera server - {err}")
+            print("Invalid response from camera server - {}".format(err))
 
     def stop_capture(self):
         """
@@ -300,7 +302,7 @@ class CameraReader():
             if not response["success"]:
                 raise RuntimeError(response["message"])
         except KeyError as err:
-            print(f"Invalid response from camera server - {err}")
+            print("Invalid response from camera server - {}".format(err))
 
     def start_capture(self):
         """
@@ -313,4 +315,4 @@ class CameraReader():
             if not response["success"]:
                 raise RuntimeError(response["message"])
         except KeyError as err:
-            print(f"Invalid response from camera server - {err}")
+            print("Invalid response from camera server - {}".format(err))
